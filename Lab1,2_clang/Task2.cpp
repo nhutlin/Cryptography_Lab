@@ -123,9 +123,6 @@ vector<vector<int>> ECB_Encrypt(vector<vector<int>> state,
   return state;
 }
 
-/*********************************\
-\*********************************/
-
 vector<vector<int>>
 inverseSubBytes(vector<vector<int>> state) {
   for (int i = 0; i < 4; i++) {
@@ -202,9 +199,6 @@ vector<vector<int>> ECB_Decrypt(vector<vector<int>> state,
 
   return state;
 }
-
-/*********************************\
-\*********************************/
 
 string byteToHex(vector<vector<int>> state) {
   stringstream hexString;
@@ -290,6 +284,5 @@ int main() {
     } else {
       exit(0);
     }
-
     return 0;
 }

@@ -115,6 +115,11 @@
     "streambuf": "cpp",
     "thread": "cpp",
     "cinttypes": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "span": "cpp",
+    "variant": "cpp",
+    "charconv": "cpp",
+    "chrono": "cpp",
+    "format": "cpp"
   }
 }

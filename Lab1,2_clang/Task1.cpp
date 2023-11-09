@@ -45,12 +45,13 @@ using CryptoPP::CCM;
 using CryptoPP::XTS;
 #include "include/cryptopp/gcm.h"
 using CryptoPP::GCM;
+
+#include <chrono>
 #include <iostream>
 using namespace std;
 // using cout;
 // using cerr;
 // using endl;
-
 
 #include <string>
 using std::string;
@@ -64,8 +65,7 @@ AutoSeededRandomPool prng;
 CryptoPP::byte key[AES::DEFAULT_KEYLENGTH];
 CryptoPP::byte iv[AES::BLOCKSIZE];
 string cipher, encoded, recovered, plain;
-int optionMode = 0;
-
+int optionMode;
 
 void chooseKey() {
 	int optionKey = 0;
@@ -120,9 +120,10 @@ void chooseKey() {
 	}
 }
 
-void chooseText(char optionCrypt) {
+void chooseText(int optionCrypt) {
 	int optionText = 0;
 	string fplain, fcipher;
+
 	cout << "1. Enter text from screen \n";
 	cout << "2. Enter text from file (using file name) \n";
 	cout << "Enter choice: ";
@@ -131,33 +132,34 @@ void chooseText(char optionCrypt) {
 	switch (optionText)
 	{
 	case 1:
-		if (optionCrypt == 'E') {
+		if (optionCrypt == 1) {
 			cout << "Enter the input for plaintext: ";
 			cin.ignore();
-			getline(cin, plain);
+			getline(cin, fplain);
+			StringSource(fplain, true, new HexEncoder(new StringSink(plain)));
 		} 
-		else if (optionCrypt == 'D') {
+		else if (optionCrypt == 2) {
 			cin.ignore();
 			cout << "Enter the input for ciphertext: ";
-			getline(cin, cipher);
+			getline(cin, fcipher);
+			StringSource(fcipher, true, new HexEncoder(new StringSink(cipher)));
 		}
-		else return;
 		break;
 	
 	case 2:
-		if (optionCrypt == 'E') {
+		if (optionCrypt == 1) {
 			cout << "Enter the plaintext file using file name: ";
-			cin.ignore();
+			cin.ignore();StringSource(fplain, true, new StringSink(plain));
 			getline(cin, fplain);
-			FileSource(fplain.data(), true, new CryptoPP::StringSink(plain));
+			FileSource(fplain.data(), true,new HexEncoder(new StringSink(plain)));
 		} 
-		else if (optionCrypt == 'D') {
+		else if (optionCrypt == 2) {
 			cout << "Enter the ciphertext file using file name: ";
 			cin.ignore();
 			getline(cin, fcipher);
-			FileSource(fcipher.data(), true, new CryptoPP::StringSink(cipher));
+			FileSource(fcipher.data(), true,new HexEncoder(new StringSink(cipher)));
 		} 
-		else return;
+	
 		break;
 
 	default:
@@ -187,12 +189,9 @@ void printKey() {
 }
 
 void encryptCBC() {
-	// Pretty print key
-	printKey();
-
-try
-	{
-		cout << "plain text: " << plain << endl;
+	 try
+		{
+		
 
 		CBC_Mode< AES >::Encryption e;
 		e.SetKeyWithIV(key, sizeof(key), iv);
@@ -221,24 +220,18 @@ try
 		exit(1);
 	}
 
-		// Pretty print
-	encoded.clear();
-	StringSource(cipher, true,
-		new HexEncoder(
-			new StringSink(encoded)
-		) // HexEncoder
-	); // StringSource
-	cout << "cipher text: " << encoded << endl;
 
 
+	
 }
 
 void decryptCBC() {
-	printKey();
+	
 	try
 	{
-		cout << "cipher text: " << cipher << endl;
-		CBC_Mode< AES >::Decryption d;
+		
+
+		CBC_Mode< AES >::Encryption d;
 		d.SetKeyWithIV(key, sizeof(key), iv);
 
 		// The StreamTransformationFilter removes
@@ -250,65 +243,65 @@ void decryptCBC() {
 		); // StringSource
 
 #if 0
-		StreamTransformationFilter filter(d);
+		StreamTransformationFilter filter(e);
 		filter.Put((const byte*)cipher.data(), cipher.size());
 		filter.MessageEnd();
 
 		const size_t ret = filter.MaxRetrievable();
-		recovered.resize(ret);
+		cipher.resize(ret);
 		filter.Get((byte*)recovered.data(), recovered.size());
 #endif
-
-		//cout << "recovered text: " << recovered << endl;
 	}
 	catch(const CryptoPP::Exception& e)
 	{
 		cerr << e.what() << endl;
 		exit(1);
 	}
+
+
+
 }
 
+
 void encryptECB() {
-	printKey();
+	
 	try
 	{
-		cout << "plain text: " << plain << endl;
-
 		ECB_Mode< AES >::Encryption e;
 		e.SetKey(key, sizeof(key));
-
-		// The StreamTransformationFilter adds padding
-		//  as required. ECB and CBC Mode must be padded
-		//  to the block size of the cipher.
 		StringSource(plain, true, 
 			new StreamTransformationFilter(e,
 				new StringSink(cipher)
 			) // StreamTransformationFilter      
 		); // StringSource
+	
+#if 0
+		StreamTransformationFilter filter(e);
+		filter.Put((const byte*)cipher.data(), cipher.size());
+		filter.MessageEnd();
+
+		const size_t ret = filter.MaxRetrievable();
+		cipher.resize(ret);
+		filter.Get((byte*)recovered.data(), recovered.size());
+#endif
 	}
+
 	catch(const CryptoPP::Exception& e)
 	{
 		cerr << e.what() << endl;
 		exit(1);
 	}
-
-
 }
 
 void decryptECB() {
-	printKey();
 	try
 	{
-		cout << "cipher text: " << cipher;
 		ECB_Mode< AES >::Decryption d;
 		d.SetKey(key, sizeof(key));
-
-		// The StreamTransformationFilter removes
-		//  padding as required.
 		StringSource s(cipher, true, 
 			new StreamTransformationFilter(d,
 				new StringSink(recovered)
-			) // StreamTransformationFilter
+			) // StreamTransformationFilter      
 		); // StringSource
 	}
 	catch(const CryptoPP::Exception& e)
@@ -319,11 +312,10 @@ void decryptECB() {
 }
 
 void encryptCFB() {
-	printKey();
+	
+
 	try
 	{
-		cout << "plain text: " << plain << endl;
-
 		CFB_Mode< AES >::Encryption e;
 		e.SetKeyWithIV(key, sizeof(key), iv);
 
@@ -343,42 +335,34 @@ void encryptCFB() {
 }
 
 void decryptCFB() {
-	printKey();
+	
+
 	try
 	{
-		cout << "cipher text: " << cipher << endl;
+		
 		CFB_Mode< AES >::Decryption d;
 		d.SetKeyWithIV(key, sizeof(key), iv);
-
-		// The StreamTransformationFilter removes
-		//  padding as required.
 		StringSource s(cipher, true, 
 			new StreamTransformationFilter(d,
 				new StringSink(recovered)
 			) // StreamTransformationFilter
 		); // StringSource
 
-		cout << "recovered text: " << recovered << endl;
+		
 	}
 	catch(const CryptoPP::Exception& e)
 	{
 		cerr << e.what() << endl;
 		exit(1);
 	}
-
 }
 
 void encryptOFB() {
-	printKey();
 	try
 	{
-		cout << "plain text: " << plain << endl;
 
 		OFB_Mode< AES >::Encryption e;
 		e.SetKeyWithIV(key, sizeof(key), iv);
-
-		// OFB mode must not use padding. Specifying
-		//  a scheme will result in an exception
 		StringSource(plain, true, 
 			new StreamTransformationFilter(e,
 				new StringSink(cipher)
@@ -393,22 +377,17 @@ void encryptOFB() {
 }
 
 void decryptOFB() {
-	printKey();
+
 	try
 	{
-		cout << "cipher text: " << cipher;
 		OFB_Mode< AES >::Decryption d;
 		d.SetKeyWithIV(key, sizeof(key), iv);
-
-		// The StreamTransformationFilter removes
-		//  padding as required.
 		StringSource s(cipher, true, 
 			new StreamTransformationFilter(d,
 				new StringSink(recovered)
 			) // StreamTransformationFilter
 		); // StringSource
 
-		cout << "recovered text: " << recovered << endl;
 	}
 	catch(const CryptoPP::Exception& e)
 	{
@@ -418,17 +397,13 @@ void decryptOFB() {
 }
 
 void encryptCTR() {
-	printKey();
+
 	try
 	{
-		cout << "plain text: " << plain << endl;
+		
 
 		CTR_Mode< AES >::Encryption e;
 		e.SetKeyWithIV(key, sizeof(key), iv);
-
-		// The StreamTransformationFilter adds padding
-		//  as required. ECB and CBC Mode must be padded
-		//  to the block size of the cipher.
 		StringSource(plain, true, 
 			new StreamTransformationFilter(e,
 				new StringSink(cipher)
@@ -443,23 +418,16 @@ void encryptCTR() {
 }
 
 void decryptCTR() {
-	printKey();
 
 	try
 	{
-		cout << "cipher text: " << cipher << endl;
 		CTR_Mode< AES >::Decryption d;
 		d.SetKeyWithIV(key, sizeof(key), iv);
-
-		// The StreamTransformationFilter removes
-		//  padding as required.
 		StringSource s(cipher, true, 
 			new StreamTransformationFilter(d,
 				new StringSink(recovered)
 			) // StreamTransformationFilter
 		); // StringSource
-
-		cout << "recovered text: " << recovered << endl;
 	}
 	catch(const CryptoPP::Exception& e)
 	{
@@ -469,17 +437,15 @@ void decryptCTR() {
 }
 
 void encryptXTS() {
-	printKey();
-	cout << "plaint text: " << endl;
     try {
-        XTS_Mode<AES>::Encryption e;
+        CryptoPP::XTS_Mode<AES>::Encryption e;
         e.SetKeyWithIV(key, 32, iv);
 
 #if 0
-        cout << "key length: " << enc.DefaultKeyLength() << endl;
-        cout << "key length (min): " << enc.MinKeyLength() << endl;
-        cout << "key length (max): " << enc.MaxKeyLength() << endl;
-        cout << "block size: " << enc.BlockSize() << endl;
+        std::cout << "key length: " << enc.DefaultKeyLength() << std::endl;
+        std::cout << "key length (min): " << enc.MinKeyLength() << std::endl;
+        std::cout << "key length (max): " << enc.MaxKeyLength() << std::endl;
+        std::cout << "block size: " << enc.BlockSize() << std::endl;
 #endif
         
         StringSource(plain, true, new StreamTransformationFilter(
@@ -488,15 +454,14 @@ void encryptXTS() {
         );
     }
     catch (const CryptoPP::Exception& exc) {
-        cerr << exc.what() << endl;
-        exit(1);
+        std::cerr << exc.what() << std::endl;
+        std::exit(1);
     }
-
 }
 
 void decryptXTS() {
+
     try {
-        
         XTS_Mode<AES>::Decryption d;
         d.SetKeyWithIV(key, 32, iv);
         StringSource (cipher, true, new StreamTransformationFilter(
@@ -513,6 +478,8 @@ void decryptXTS() {
 const int TAG_SIZE = 8;
 
 void encryptCCM() {
+	
+
     try {
         CCM<AES, TAG_SIZE>::Encryption e;
         e.SetKeyWithIV(key, AES::DEFAULT_KEYLENGTH, iv, 12);
@@ -529,6 +496,8 @@ void encryptCCM() {
 }
 
 void decryptCCM() {
+
+
     try {
         CCM<AES, TAG_SIZE>::Decryption d;
         d.SetKeyWithIV(key, AES::DEFAULT_KEYLENGTH, iv, 12);
@@ -545,6 +514,8 @@ void decryptCCM() {
 }
 
 void encryptGCM() {
+
+
     try {
         GCM<AES>::Encryption e;
         e.SetKeyWithIV(key, AES::DEFAULT_KEYLENGTH, iv, AES::BLOCKSIZE);
@@ -560,6 +531,7 @@ void encryptGCM() {
 }
 
 void decryptGCM() {
+	
     try {
         GCM<AES>::Decryption d;
         d.SetKeyWithIV(key, AES::DEFAULT_KEYLENGTH, iv, AES::BLOCKSIZE);
@@ -584,7 +556,7 @@ void chooseOutput(char optionCrypt) {
 	switch (optionOutput)
 	{
 	case 1:
-		if(optionCrypt == 'E') {
+		if(optionCrypt == 1) {
 			encoded.clear();
 			StringSource(cipher, true,
 				new HexEncoder(
@@ -592,23 +564,22 @@ void chooseOutput(char optionCrypt) {
 				) // HexEncoder
 			); // StringSource
 			cout << "cipher text: " << encoded << endl;
-		} else if(optionCrypt == 'D') {
+		} else if(optionCrypt == 2) {
 			encoded.clear();
-			StringSource(recovered, true,
-				new HexEncoder(
+			StringSource(recovered, true, //newHexEncoder
 					new StringSink(encoded)
-				) // HexEncoder
+				 // HexEncoder
 			); // StringSource
 			cout << "plain text: " << encoded << endl;
 		} else return;
 		break;
 	
 	case 2: 
-		if(optionCrypt == 'E') {
+		if(optionCrypt == 2) {
 			StringSource(cipher, true, new HexEncoder( new FileSink("cipherOut.txt", true)));
 			
 		} else if(optionCrypt == 'D') {
-			StringSource(recovered, true,new HexEncoder(new FileSink("plainOut.txt", true)));
+			StringSource(recovered, true, new FileSink("plainOut.txt", true));
 		}		
 	default:
 		break;
@@ -617,7 +588,12 @@ void chooseOutput(char optionCrypt) {
 
 int main(int argc, char* argv[])
 {
-	char optionCrypt = 'E';
+	#ifdef __linux__
+    std::locale::global(std::locale("C.utf8"));
+    #endif
+
+	int optionCrypt;
+	char isCheck, optionPrint;
 	cout << "Select AES mode: \n";
 	cout << "1. ECB \n";
 	cout << "2. CBC \n";
@@ -629,24 +605,66 @@ int main(int argc, char* argv[])
 	cout << "8. GCM \n";
 	cout << "Enter choice: ";
 	cin >> optionMode;
+	
 
+	int keySize = (optionMode == 6) ? 32 : AES::DEFAULT_KEYLENGTH;
+    int ivSize = (optionMode == 7) ? 12 : AES::BLOCKSIZE;
+
+    /* Initialize key */
+    CryptoPP::byte newKey[keySize];
+
+    /* Initialize initial vector (IV) */
+    CryptoPP::byte newIV[ivSize];
+	
 	switch (optionMode)
 	{
 	case 1:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
+		
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptECB();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					encryptECB();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				encryptECB();
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptECB();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					decryptECB();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				decryptECB();
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
@@ -654,20 +672,51 @@ int main(int argc, char* argv[])
 
 	case 2:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptCBC();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					encryptCBC();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				encryptCBC();
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptCBC();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					decryptCBC();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				decryptCBC();
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
@@ -675,20 +724,51 @@ int main(int argc, char* argv[])
 
 	case 3:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
+		
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptOFB();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					encryptOFB();
+        		}
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				encryptOFB();
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptOFB();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					decryptOFB();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				decryptOFB();
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
@@ -696,20 +776,51 @@ int main(int argc, char* argv[])
 	
 	case 4:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptCFB();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					encryptCFB();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				encryptCFB();
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptCFB();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					decryptCFB();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				decryptCFB();
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
@@ -718,20 +829,50 @@ int main(int argc, char* argv[])
 
 	case 5:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptCTR();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					encryptCTR();
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				encryptCTR();
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptCTR();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					decryptCTR();
+        		}
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				decryptCTR();
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
@@ -739,73 +880,349 @@ int main(int argc, char* argv[])
 
 	case 6:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		StringSource(key, true, new HexEncoder(new ArraySink(newKey, sizeof(newKey))));
+		StringSource(iv, true, new HexEncoder(new ArraySink(newIV, sizeof(newIV))));
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptXTS();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					try {
+						XTS_Mode<AES>::Encryption e;
+						e.SetKeyWithIV(newKey, 32, newIV);
+
+				#if 0
+						std::cout << "key length: " << enc.DefaultKeyLength() << std::endl;
+						std::cout << "key length (min): " << enc.MinKeyLength() << std::endl;
+						std::cout << "key length (max): " << enc.MaxKeyLength() << std::endl;
+						std::cout << "block size: " << enc.BlockSize() << std::endl;
+				#endif
+						
+						StringSource(plain, true, new StreamTransformationFilter(
+								e, new StringSink(cipher), StreamTransformationFilter::NO_PADDING 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+        		}
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				try {
+						XTS_Mode<AES>::Encryption e;
+						e.SetKeyWithIV(newKey, 32, newIV);
+
+				#if 0
+						std::cout << "key length: " << enc.DefaultKeyLength() << std::endl;
+						std::cout << "key length (min): " << enc.MinKeyLength() << std::endl;
+						std::cout << "key length (max): " << enc.MaxKeyLength() << std::endl;
+						std::cout << "block size: " << enc.BlockSize() << std::endl;
+				#endif
+						
+						StringSource(plain, true, new StreamTransformationFilter(
+								e, new StringSink(cipher), StreamTransformationFilter::NO_PADDING 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptXTS();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					try {
+        
+						CryptoPP::XTS_Mode<AES>::Decryption d;
+						d.SetKeyWithIV(newKey, 32, newIV);
+						StringSource (cipher, true, new StreamTransformationFilter(
+							d, new StringSink(recovered), StreamTransformationFilter::NO_PADDING
+							)
+        				);
+					}
+					catch (const CryptoPP::Exception& exc) {
+						std::cerr << exc.what() << std::endl;
+						std::exit(1);
+					}
+
+        		}
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				try {
+        
+						XTS_Mode<AES>::Decryption d;
+						d.SetKeyWithIV(newKey, 32, newIV);
+						StringSource (cipher, true, new StreamTransformationFilter(
+							d, new StringSink(recovered), StreamTransformationFilter::NO_PADDING
+							)
+        				);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
+		cout << "Do you want to print key and iv (if any) (Y/N): ";
+		cin >> optionPrint;
+		if(tolower(optionPrint) == 'y') {
+			StringSource(newKey, sizeof(newKey), true, new FileSink("key.txt", sizeof(newKey)));
+			StringSource(newIV, sizeof(newIV), true, new FileSink("iv.txt", sizeof(newIV)));
+		}	
 		break;
 
 	case 7:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		StringSource(key, true, new HexEncoder(new ArraySink(newKey, sizeof(newKey))));
+		StringSource(iv, true, new HexEncoder(new ArraySink(newIV, sizeof(newIV))));
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
+
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
+			
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptCCM();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					try {
+						CCM<AES, TAG_SIZE>::Encryption e;
+						e.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, 12);
+						e.SpecifyDataLengths(0, plain.size(), 0);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								e, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				try {
+						CCM<AES, TAG_SIZE>::Encryption e;
+						e.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, 12);
+						e.SpecifyDataLengths(0, plain.size(), 0);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								e, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptCCM();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					try {
+						CCM<AES, TAG_SIZE>::Decryption d;
+						d.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, 12);
+						d.SpecifyDataLengths(0, plain.size(), 0);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								d, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << std::endl;
+						exit(1);
+					}
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				try {
+						CCM<AES, TAG_SIZE>::Decryption d;
+						d.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, 12);
+						d.SpecifyDataLengths(0, plain.size(), 0);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								d, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
-
+		cout << "Do you want to print key and iv (if any) (Y/N): ";
+		cin >> optionPrint;
+		if(tolower(optionPrint) == 'y') {
+			StringSource(newKey, sizeof(newKey), true, new FileSink("key.txt", sizeof(newKey)));
+			StringSource(newIV, sizeof(newIV), true, new FileSink("iv.txt", sizeof(newIV)));
+		}	
 		break;
 
 	case 8:
 		chooseKey();
-		cout << "Decrypt or Encrypt? (E or D): ";
-		cin.ignore();
+		StringSource(key, true, new HexEncoder(new ArraySink(newKey, sizeof(newKey))));
+		StringSource(iv, true, new HexEncoder(new ArraySink(newIV, sizeof(newIV))));
+		cout << "1. Encrypt \t" << "2. Decrypt? \n" << "Enter choice (1/2): ";
 		cin >> optionCrypt;
 		switch (optionCrypt)
 		{
-		case 'E':
+		case 1:
+			printKey();
 			cout << "Select the mode to choose the plaintext: \n";
 			chooseText(optionCrypt);
-			encryptGCM();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					try {
+						GCM<AES>::Encryption e;
+						e.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, AES::BLOCKSIZE);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								e, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				try {
+						GCM<AES>::Encryption e;
+						e.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, AES::BLOCKSIZE);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								e, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+			}
 			break;
-		case 'D': 
+		case 2: 
 			cout << "Select the mode to choose the ciphertext: \n";
 			chooseText(optionCrypt);
-			decryptGCM();
+			cout << "Do you want to check the computation time? (Y/N): ";
+			cin >> isCheck;
+			if(tolower(isCheck) == 'y') {
+				auto start = std::chrono::high_resolution_clock::now();
+        
+        		for (int i = 0; i < 1000; ++i) {
+					try {
+						GCM<AES>::Decryption d;
+						d.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, AES::BLOCKSIZE);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								d, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+        		}
+
+				auto end = chrono::high_resolution_clock::now();
+				auto duration = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+				double averageTime = static_cast<double>(duration) / 1000.0;
+				cout << "Average time for encryption over 1000 rounds: " << averageTime << " ms" << std::endl;
+			} else {
+				try {
+						GCM<AES>::Decryption d;
+						d.SetKeyWithIV(newKey, AES::DEFAULT_KEYLENGTH, newIV, AES::BLOCKSIZE);
+						StringSource(plain, true, new AuthenticatedEncryptionFilter(
+								d, new StringSink(cipher) 
+							)
+						);
+					}
+					catch (const Exception& exc) {
+						cerr << exc.what() << endl;
+						exit(1);
+					}
+			}
 			break;
 		}
 		chooseOutput(optionCrypt);
-
+		
+		cout << "Do you want to print key and iv (if any) (Y/N): ";
+		cin >> optionPrint;
+		if(tolower(optionPrint) == 'y') {
+			StringSource(newKey, sizeof(newKey), true, new FileSink("key.txt", sizeof(newKey)));
+			StringSource(newIV, sizeof(newIV), true, new FileSink("iv.txt", sizeof(newIV)));
+		}
 		break;
 
 	default:
 		break;
 	}
-
+	cout << "Do you want to print key and iv (if any) (Y/N): ";
+	cin >> optionPrint;
+	if(tolower(optionPrint) == 'y') {
+		StringSource(key, sizeof(key), true, new FileSink("key.txt", sizeof(key)));
+		if (optionMode == 1)
+		{
+			StringSource(iv, sizeof(iv), true, new FileSink("iv.txt", sizeof(iv)));
+		}
+	}
 	return 0;
 }
-

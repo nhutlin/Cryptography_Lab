@@ -6,9 +6,6 @@
 			"label": "C/C++: clang++ build active file",
 			"command": "/usr/bin/clang++",
 			"args": [
-				"-fcolor-diagnostics",
-				"-fansi-escape-codes",
-				"-Wall",
 				"-g2",
 				"-O3",
 				"${file}",
@@ -17,7 +14,8 @@
 				"-pthread",
 				"-I${workspaceFolder}/include",
 				"-L${workspaceFolder}/lib",
-				"-l:libcryptopp.a"
+				"-l:libcryptopp.a",
+				"-Wall",
 			],
 			"options": {
 				"cwd": "${fileDirname}"
